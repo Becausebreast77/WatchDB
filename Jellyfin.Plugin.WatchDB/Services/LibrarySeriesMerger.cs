@@ -43,6 +43,10 @@ public sealed class LibrarySeriesMerger
                 .OfType<Series>()
                 .Where(IsInTvLibrary)
                 .ToArray();
+            var allEpisodes = _libraryManager.RootFolder
+                .GetRecursiveChildren()
+                .OfType<Episode>()
+                .ToArray();
 
             foreach (var seriesWithoutId in allSeries.Where(item => GetTmdbId(item) is null))
             {
@@ -80,7 +84,10 @@ public sealed class LibrarySeriesMerger
 
                 foreach (var duplicate in ordered.Skip(1))
                 {
-                    foreach (var episode in duplicate.Series.GetRecursiveChildren().OfType<Episode>())
+                    var duplicateEpisodes = allEpisodes
+                        .Where(episode => episode.SeriesId == duplicate.Series.Id)
+                        .ToArray();
+                    foreach (var episode in duplicateEpisodes)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         episode.SeriesId = primary.Id;
@@ -101,8 +108,11 @@ public sealed class LibrarySeriesMerger
                         summary.EpisodesMerged++;
                     }
 
-                    summary.SeriesCardsMerged++;
-                    WatchDbLog.MergedDuplicateSeries(_logger, duplicate.Series.Name, primary.Name, group.Key);
+                    if (duplicateEpisodes.Length > 0)
+                    {
+                        summary.SeriesCardsMerged++;
+                        WatchDbLog.MergedDuplicateSeries(_logger, duplicate.Series.Name, primary.Name, group.Key);
+                    }
                 }
             }
 
