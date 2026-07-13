@@ -64,6 +64,19 @@ Copy the generated `Jellyfin.Plugin.WatchDB.dll` into a dedicated folder in Jell
 
 If Jellyfin runs in Docker, the source directories and destination directory must be mounted inside the container; a host path by itself is not visible to the plugin.
 
+## Install from Jellyfin
+
+After the first GitHub release has completed, add this custom repository once in **Dashboard → Plugins → Repositories**:
+
+- **Name:** `WatchDB`
+- **Repository URL:** `https://raw.githubusercontent.com/Becausebreast77/WatchDB/main/manifest.json`
+
+The WatchDB plugin will then appear in the plugin catalog. Install it there and restart Jellyfin when requested. Do not use the GitHub repository URL or the GitHub Release URL in this field: Jellyfin expects the JSON manifest URL.
+
+## Publish a release
+
+Maintainers publish a version from the **Actions → Release WatchDB → Run workflow** page on the `main` branch. Enter a four-part version such as `0.1.0.0`. The workflow builds and tests the plugin, creates the plugin zip, creates the GitHub Release, calculates its MD5 checksum, and updates `manifest.json` automatically.
+
 ## Scope of the first version
 
 The first version deliberately handles the problem that Jellyfin misses: release-style single episodes and one-release-per-folder layouts. It does not alter existing Jellyfin metadata or merge arbitrary already-indexed library items. That keeps its actions reversible and auditable.

@@ -1,0 +1,11 @@
+[
+  {
+    "guid": "6c096401-05c2-4eb2-895a-f45f24a79f44",
+    "name": "WatchDB Smart Organizer",
+    "overview": "Organise automatiquement les épisodes orphelins pour Jellyfin.",
+    "description": "Analyse les noms de releases, valide les épisodes auprès de TMDb et construit une bibliothèque Jellyfin propre par liens symboliques, sans déplacer les fichiers originaux.",
+    "owner": "Becausebreast77",
+    "category": "General",
+    "versions": []
+  }
+]

@@ -1,0 +1,53 @@
+name: Release WatchDB
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Four-part plugin version, for example 0.1.0.0
+        required: true
+        default: 0.1.0.0
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Validate version
+        run: test "$(echo "$VERSION" | grep -E '^([0-9]+\.){3}[0-9]+$')" = "$VERSION"
+      - name: Restore, build, and test
+        run: |
+          dotnet restore Jellyfin.Plugin.WatchDB/Jellyfin.Plugin.WatchDB.csproj --locked-mode
+          dotnet restore tests/WatchDB.SmokeTests/WatchDB.SmokeTests.csproj --locked-mode
+          dotnet build Jellyfin.Plugin.WatchDB/Jellyfin.Plugin.WatchDB.csproj --configuration Release --no-restore -p:Version="$VERSION"
+          dotnet run --project tests/WatchDB.SmokeTests/WatchDB.SmokeTests.csproj --configuration Release --no-restore
+      - name: Package plugin
+        run: |
+          mkdir -p release
+          zip -j "release/WatchDB-$VERSION.zip" "Jellyfin.Plugin.WatchDB/bin/Release/net9.0/Jellyfin.Plugin.WatchDB.dll"
+          echo "CHECKSUM=$(md5sum "release/WatchDB-$VERSION.zip" | awk '{print toupper($1)}')" >> "$GITHUB_ENV"
+          echo "TIMESTAMP=$(date --utc +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+      - name: Create GitHub release
+        run: gh release create "v$VERSION" "release/WatchDB-$VERSION.zip#WatchDB-$VERSION.zip" --title "WatchDB $VERSION" --generate-notes
+      - name: Update Jellyfin manifest
+        run: node scripts/update-manifest.mjs "$VERSION" "$CHECKSUM" "$TIMESTAMP"
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Publish WatchDB $VERSION manifest"
+          git push origin HEAD:main
