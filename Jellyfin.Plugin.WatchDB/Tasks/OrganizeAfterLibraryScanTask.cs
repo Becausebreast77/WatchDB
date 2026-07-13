@@ -28,7 +28,7 @@ public sealed class OrganizeAfterLibraryScanTask : ILibraryPostScanTask
     public async Task Run(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var plugin = Plugin.Instance;
-        if (plugin is null || !plugin.Configuration.Enabled || !plugin.Configuration.OrganizeAfterLibraryScan)
+        if (plugin is null)
         {
             progress.Report(100);
             return;

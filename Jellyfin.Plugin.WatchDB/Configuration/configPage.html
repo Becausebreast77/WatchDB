@@ -1,56 +1,10 @@
-<div id="watchdbConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox">
+<div id="watchdbConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
     <div data-role="content">
         <div class="content-primary">
-            <form id="watchdbConfigForm">
-                <h1>WatchDB Smart Organizer</h1>
-                <p>WatchDB surveille automatiquement les bibliothèques Séries existantes après chaque scan Jellyfin. Il ne déplace ni ne supprime tes fichiers.</p>
-
-                <label class="checkboxContainer">
-                    <input id="enabled" type="checkbox" is="emby-checkbox" />
-                    <span>Réparer automatiquement les séries fragmentées</span>
-                </label>
-                <div class="fieldDescription">Les cartes ne sont regroupées que lorsque Jellyfin les a déjà confirmées avec le même identifiant TMDb. Aucun chemin de dossier ni jeton personnel n’est nécessaire.</div>
-
-                <label class="checkboxContainer">
-                    <input id="organizeAfterLibraryScan" type="checkbox" is="emby-checkbox" />
-                    <span>Analyser après chaque scan de bibliothèque</span>
-                </label>
-
-                <button is="emby-button" type="submit" class="raised button-submit block emby-button">
-                    <span>Enregistrer</span>
-                </button>
-            </form>
+            <h1>WatchDB Smart Organizer</h1>
+            <p>WatchDB est actif automatiquement après chaque scan des bibliothèques Séries.</p>
+            <p>Il utilise les métadonnées déjà configurées dans Jellyfin, tente d’identifier les cartes inconnues, puis regroupe uniquement les séries confirmées par le même identifiant TMDb.</p>
+            <p>Aucun dossier, jeton API ou réglage à enregistrer. Tes fichiers ne sont ni déplacés ni supprimés.</p>
         </div>
     </div>
 </div>
-
-<script>
-(() => {
-    const pluginId = '6c096401-05c2-4eb2-895a-f45f24a79f44';
-    const page = document.querySelector('#watchdbConfigPage');
-    const form = page.querySelector('#watchdbConfigForm');
-    const getConfigValue = (config, property) => {
-        const key = Object.keys(config).find(key => key.toLowerCase() === property.toLowerCase());
-        return key ? config[key] : undefined;
-    };
-    const setConfigValue = (config, property, value) => {
-        const key = Object.keys(config).find(key => key.toLowerCase() === property.toLowerCase()) || property;
-        config[key] = value;
-    };
-
-    page.addEventListener('pageshow', async () => {
-        const config = await ApiClient.getPluginConfiguration(pluginId);
-        form.querySelector('#enabled').checked = getConfigValue(config, 'Enabled') !== false;
-        form.querySelector('#organizeAfterLibraryScan').checked = getConfigValue(config, 'OrganizeAfterLibraryScan') !== false;
-    });
-
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-        const config = await ApiClient.getPluginConfiguration(pluginId);
-        setConfigValue(config, 'Enabled', form.querySelector('#enabled').checked);
-        setConfigValue(config, 'OrganizeAfterLibraryScan', form.querySelector('#organizeAfterLibraryScan').checked);
-        await ApiClient.updatePluginConfiguration(pluginId, config);
-        Dashboard.processPluginConfigurationUpdateResult();
-    });
-})();
-</script>

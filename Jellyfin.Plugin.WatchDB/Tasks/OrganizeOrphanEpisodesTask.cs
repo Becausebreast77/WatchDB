@@ -44,9 +44,8 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var plugin = Plugin.Instance;
-        if (plugin is null || !plugin.Configuration.Enabled)
+        if (plugin is null)
         {
-            WatchDbLog.Disabled(_logger);
             progress.Report(100);
             return;
         }
