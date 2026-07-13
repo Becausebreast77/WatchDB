@@ -139,11 +139,17 @@ public sealed class LibrarySeriesMerger
 
     private async Task TryIdentifySeriesAsync(Series series, CancellationToken cancellationToken)
     {
+        var searchTitle = GetSearchTitle(series);
+        if (string.IsNullOrWhiteSpace(searchTitle))
+        {
+            return;
+        }
+
         var query = new RemoteSearchQuery<SeriesInfo>
         {
             SearchInfo = new SeriesInfo
             {
-                Name = series.Name,
+                Name = searchTitle,
             },
         };
         var candidates = (await _providerManager
@@ -152,7 +158,7 @@ public sealed class LibrarySeriesMerger
             .Where(candidate => candidate.ProviderIds.TryGetValue("Tmdb", out _))
             .Where(candidate => string.Equals(
                 EpisodeFilenameParser.NormalizeTitle(candidate.Name),
-                EpisodeFilenameParser.NormalizeTitle(series.Name),
+                EpisodeFilenameParser.NormalizeTitle(searchTitle),
                 StringComparison.Ordinal))
             .GroupBy(candidate => candidate.ProviderIds["Tmdb"], StringComparer.Ordinal)
             .Select(group => group.First())
@@ -167,6 +173,22 @@ public sealed class LibrarySeriesMerger
         series.ProviderIds["Tmdb"] = tmdbId;
         await _providerManager.SaveMetadataAsync(series, ItemUpdateType.MetadataEdit).ConfigureAwait(false);
         WatchDbLog.IdentifiedSeries(_logger, series.Name, tmdbId);
+    }
+
+    private static string GetSearchTitle(Series series)
+    {
+        if (!string.IsNullOrWhiteSpace(series.Path))
+        {
+            var parent = Path.GetDirectoryName(series.Path);
+            if (!string.IsNullOrWhiteSpace(parent)
+                && EpisodeFilenameParser.TryParse(series.Path, parent, 0, out var parsed)
+                && parsed is not null)
+            {
+                return parsed.SeriesTitle;
+            }
+        }
+
+        return series.Name;
     }
 
     private sealed record IdentifiedSeries(Series Series, string? TmdbId);
