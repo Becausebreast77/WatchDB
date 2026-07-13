@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.2.0.1",
+        "changelog": "Initial public release of WatchDB Smart Organizer.",
+        "targetAbi": "10.11.11.0",
+        "sourceUrl": "https://github.com/Becausebreast77/WatchDB/releases/download/v0.2.0.1/WatchDB-0.2.0.1.zip",
+        "checksum": "B6727E7FA146F7FFCB4BEBAFC7F3EA53",
+        "timestamp": "2026-07-13T18:33:51Z"
+      },
+      {
         "version": "0.2.0.0",
         "changelog": "Initial public release of WatchDB Smart Organizer.",
         "targetAbi": "10.11.11.0",
