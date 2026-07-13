@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.WatchDB.Services;
 
 /// <summary>
-/// Reattaches episodes from duplicate Jellyfin series cards which have the same TMDb id.
+/// Reattaches episodes from duplicate Jellyfin series cards and repairs orphan episodes
+/// from their release filenames.
 /// </summary>
 public sealed class LibrarySeriesMerger
 {
@@ -26,7 +27,8 @@ public sealed class LibrarySeriesMerger
     }
 
     /// <summary>
-    /// Groups duplicate series cards that Jellyfin's metadata provider has already confirmed as the same TMDb series.
+    /// Groups duplicate series cards that Jellyfin's metadata provider has already confirmed as the same TMDb series
+    /// and repairs invalid season links when the raw filename unambiguously identifies an existing series.
     /// </summary>
     public async Task<LibraryMergeSummary> RunAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
@@ -116,6 +118,8 @@ public sealed class LibrarySeriesMerger
                 }
             }
 
+            await RepairOrphanEpisodesAsync(allSeries, allEpisodes, summary, cancellationToken).ConfigureAwait(false);
+
             progress.Report(100);
             return summary;
         }
@@ -135,6 +139,135 @@ public sealed class LibrarySeriesMerger
         return series.ProviderIds.TryGetValue("Tmdb", out var tmdbId) && !string.IsNullOrWhiteSpace(tmdbId)
             ? tmdbId
             : null;
+    }
+
+    private async Task RepairOrphanEpisodesAsync(
+        IReadOnlyCollection<Series> allSeries,
+        IReadOnlyCollection<Episode> allEpisodes,
+        LibraryMergeSummary summary,
+        CancellationToken cancellationToken)
+    {
+        var seasonIds = allSeries
+            .SelectMany(series => series.GetRecursiveChildren().OfType<Season>())
+            .Select(season => season.Id)
+            .ToHashSet();
+        var lookupCache = new Dictionary<string, Series?>(StringComparer.Ordinal);
+
+        foreach (var episode in allEpisodes.Where(episode => IsOrphanedSeason(episode, seasonIds)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            summary.OrphanEpisodesFound++;
+
+            if (!TryParseEpisodeFilename(episode, out var parsed))
+            {
+                WatchDbLog.OrphanEpisodeIgnored(_logger, episode.Name, episode.Path ?? string.Empty);
+                continue;
+            }
+
+            summary.OrphanEpisodesParsed++;
+            var target = await ResolveCanonicalSeriesAsync(parsed, allSeries, lookupCache, cancellationToken).ConfigureAwait(false);
+            if (target is null)
+            {
+                WatchDbLog.OrphanEpisodeTargetNotFound(_logger, episode.Name, parsed.SeriesTitle, parsed.SeasonNumber, parsed.EpisodeNumber);
+                continue;
+            }
+
+            var season = target
+                .GetRecursiveChildren()
+                .OfType<Season>()
+                .FirstOrDefault(item => item.IndexNumber == parsed.SeasonNumber);
+            if (season is null)
+            {
+                // A Season item is owned by Jellyfin's library scanner. Creating one here would leave the
+                // scanner and metadata provider with conflicting ownership, so wait for its normal scan.
+                WatchDbLog.OrphanEpisodeSeasonNotFound(_logger, episode.Name, target.Name, parsed.SeasonNumber);
+                continue;
+            }
+
+            episode.SeriesId = target.Id;
+            episode.SeriesName = target.Name;
+            episode.SeriesPresentationUniqueKey = target.PresentationUniqueKey;
+            episode.SeasonId = season.Id;
+            episode.SeasonName = season.Name;
+            episode.ParentIndexNumber = parsed.SeasonNumber;
+            episode.IndexNumber = parsed.EpisodeNumber;
+            await _libraryManager.UpdateItemAsync(episode, season, ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
+
+            summary.EpisodesMerged++;
+            summary.OrphanEpisodesReattached++;
+            WatchDbLog.OrphanEpisodeReattached(_logger, episode.Name, parsed.SeriesTitle, parsed.SeasonNumber, parsed.EpisodeNumber, target.Name);
+        }
+    }
+
+    private static bool IsOrphanedSeason(Episode episode, HashSet<Guid> seasonIds)
+    {
+        return episode.SeasonId == Guid.Empty || !seasonIds.Contains(episode.SeasonId);
+    }
+
+    private static bool TryParseEpisodeFilename(Episode episode, out ParsedEpisode parsed)
+    {
+        parsed = null!;
+        if (string.IsNullOrWhiteSpace(episode.Path))
+        {
+            return false;
+        }
+
+        var directory = Path.GetDirectoryName(episode.Path);
+        return !string.IsNullOrWhiteSpace(directory)
+            && EpisodeFilenameParser.TryParse(episode.Path, directory, 0, out var parsedEpisode)
+            && (parsed = parsedEpisode!) is not null;
+    }
+
+    private async Task<Series?> ResolveCanonicalSeriesAsync(
+        ParsedEpisode parsed,
+        IReadOnlyCollection<Series> allSeries,
+        Dictionary<string, Series?> lookupCache,
+        CancellationToken cancellationToken)
+    {
+        var normalizedTitle = EpisodeFilenameParser.NormalizeTitle(parsed.SeriesTitle);
+        if (lookupCache.TryGetValue(normalizedTitle, out var cached))
+        {
+            return cached;
+        }
+
+        var localMatches = allSeries
+            .Where(series => string.Equals(
+                EpisodeFilenameParser.NormalizeTitle(series.Name),
+                normalizedTitle,
+                StringComparison.Ordinal))
+            .ToArray();
+        if (localMatches.Length == 1)
+        {
+            lookupCache[normalizedTitle] = localMatches[0];
+            return localMatches[0];
+        }
+
+        var query = new RemoteSearchQuery<SeriesInfo>
+        {
+            SearchInfo = new SeriesInfo
+            {
+                Name = parsed.SeriesTitle,
+                Year = parsed.Year,
+            },
+        };
+        var tmdbIds = (await _providerManager
+            .GetRemoteSearchResults<Series, SeriesInfo>(query, cancellationToken)
+            .ConfigureAwait(false))
+            .Where(candidate => candidate.ProviderIds.TryGetValue("Tmdb", out _))
+            .Where(candidate => string.Equals(
+                EpisodeFilenameParser.NormalizeTitle(candidate.Name),
+                normalizedTitle,
+                StringComparison.Ordinal))
+            .Select(candidate => candidate.ProviderIds["Tmdb"])
+            .Distinct(StringComparer.Ordinal)
+            .Take(2)
+            .ToArray();
+
+        var target = tmdbIds.Length == 1
+            ? allSeries.SingleOrDefault(series => string.Equals(GetTmdbId(series), tmdbIds[0], StringComparison.Ordinal))
+            : null;
+        lookupCache[normalizedTitle] = target;
+        return target;
     }
 
     private async Task TryIdentifySeriesAsync(Series series, CancellationToken cancellationToken)
@@ -220,4 +353,13 @@ public sealed class LibraryMergeSummary
 
     /// <summary>Gets or sets the number of episodes reattached.</summary>
     public int EpisodesMerged { get; set; }
+
+    /// <summary>Gets or sets the number of episodes whose SeasonId does not point to a known season.</summary>
+    public int OrphanEpisodesFound { get; set; }
+
+    /// <summary>Gets or sets the number of orphan episodes for which a release filename was parsed.</summary>
+    public int OrphanEpisodesParsed { get; set; }
+
+    /// <summary>Gets or sets the number of orphan episodes reattached through a parsed release filename.</summary>
+    public int OrphanEpisodesReattached { get; set; }
 }

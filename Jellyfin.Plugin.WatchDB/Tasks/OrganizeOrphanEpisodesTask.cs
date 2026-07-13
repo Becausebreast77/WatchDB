@@ -57,6 +57,9 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
             summary.IdentifiedSeries,
             summary.DuplicateGroups,
             summary.SeriesCardsMerged,
-            summary.EpisodesMerged);
+            summary.EpisodesMerged,
+            summary.OrphanEpisodesFound,
+            summary.OrphanEpisodesParsed,
+            summary.OrphanEpisodesReattached);
     }
 }

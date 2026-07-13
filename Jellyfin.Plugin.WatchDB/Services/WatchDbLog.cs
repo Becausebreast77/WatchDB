@@ -61,9 +61,21 @@ internal static partial class WatchDbLog
     [LoggerMessage(EventId = 1017, Level = LogLevel.Information, Message = "WatchDB merged duplicate series card {DuplicateSeries} into {PrimarySeries} (TMDb {TmdbId}).")]
     public static partial void MergedDuplicateSeries(ILogger logger, string duplicateSeries, string primarySeries, string tmdbId);
 
-    [LoggerMessage(EventId = 1018, Level = LogLevel.Information, Message = "WatchDB library pass completed: {IdentifiedSeries} identified series, {DuplicateGroups} duplicate groups, {SeriesCardsMerged} cards merged, {EpisodesMerged} episodes reattached.")]
-    public static partial void LibraryMergeSummary(ILogger logger, int identifiedSeries, int duplicateGroups, int seriesCardsMerged, int episodesMerged);
+    [LoggerMessage(EventId = 1018, Level = LogLevel.Information, Message = "WatchDB library pass completed: {IdentifiedSeries} identified series, {DuplicateGroups} duplicate groups, {SeriesCardsMerged} cards merged, {EpisodesMerged} episodes reattached; {OrphanEpisodesFound} invalid-season episodes found, {OrphanEpisodesParsed} parsed from raw filenames, {OrphanEpisodesReattached} repaired.")]
+    public static partial void LibraryMergeSummary(ILogger logger, int identifiedSeries, int duplicateGroups, int seriesCardsMerged, int episodesMerged, int orphanEpisodesFound, int orphanEpisodesParsed, int orphanEpisodesReattached);
 
     [LoggerMessage(EventId = 1019, Level = LogLevel.Information, Message = "WatchDB identified {SeriesName} through Jellyfin's metadata provider (TMDb {TmdbId}).")]
     public static partial void IdentifiedSeries(ILogger logger, string seriesName, string tmdbId);
+
+    [LoggerMessage(EventId = 1020, Level = LogLevel.Information, Message = "WatchDB ignored orphan episode {EpisodeName}: its raw file path could not be parsed ({Path}).")]
+    public static partial void OrphanEpisodeIgnored(ILogger logger, string episodeName, string path);
+
+    [LoggerMessage(EventId = 1021, Level = LogLevel.Information, Message = "WatchDB left orphan episode {EpisodeName} unchanged: no existing confirmed series for raw filename {SeriesTitle} S{Season:D2}E{Episode:D2}.")]
+    public static partial void OrphanEpisodeTargetNotFound(ILogger logger, string episodeName, string seriesTitle, int season, int episode);
+
+    [LoggerMessage(EventId = 1022, Level = LogLevel.Information, Message = "WatchDB left orphan episode {EpisodeName} unchanged: {SeriesName} has no scanned season {Season:D2} yet.")]
+    public static partial void OrphanEpisodeSeasonNotFound(ILogger logger, string episodeName, string seriesName, int season);
+
+    [LoggerMessage(EventId = 1023, Level = LogLevel.Information, Message = "WatchDB reattached orphan episode {EpisodeName} from raw filename {SeriesTitle} S{Season:D2}E{Episode:D2} to {TargetSeries}.")]
+    public static partial void OrphanEpisodeReattached(ILogger logger, string episodeName, string seriesTitle, int season, int episode, string targetSeries);
 }

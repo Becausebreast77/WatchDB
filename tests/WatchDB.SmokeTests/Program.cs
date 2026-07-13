@@ -25,6 +25,14 @@ AssertEpisode(
     2,
     10);
 
+AssertEpisode(
+    "/media/Series/Cape.Fear.S01E01.MULTi.1080p.WEB.H264-TyHD.mkv",
+    "/media/Series",
+    0,
+    "Cape Fear",
+    1,
+    1);
+
 Assert(
     EpisodeFilenameParser.NormalizeTitle("Georgie.and.Mandys.First.Marriage")
     == EpisodeFilenameParser.NormalizeTitle("Georgie & Mandy's First Marriage"),
