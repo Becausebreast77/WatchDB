@@ -43,7 +43,7 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
         var plugin = Plugin.Instance;
         if (plugin is null || !plugin.Configuration.Enabled)
         {
-            _logger.LogInformation("WatchDB is disabled; no files were processed.");
+            WatchDbLog.Disabled(_logger);
             progress.Report(100);
             return;
         }
@@ -55,8 +55,8 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
             _libraryManager.QueueLibraryScan();
         }
 
-        _logger.LogInformation(
-            "WatchDB completed: {Scanned} scanned, {Confirmed} confirmed, {Linked} linked, {Simulated} simulated, {Unmatched} unmatched, {Unparsed} unparsed, {Existing} existing, {Errors} errors.",
+        WatchDbLog.ManualSummary(
+            _logger,
             summary.Scanned,
             summary.Confirmed,
             summary.Linked,

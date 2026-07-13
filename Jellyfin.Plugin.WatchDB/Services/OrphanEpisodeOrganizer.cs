@@ -33,7 +33,7 @@ public sealed class OrphanEpisodeOrganizer
 
         if (!await RunGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         {
-            _logger.LogInformation("WatchDB skipped this request because another organization pass is already running.");
+            WatchDbLog.OrganizationAlreadyRunning(_logger);
             return OrganizerSummary.AlreadyRunning;
         }
 
@@ -52,7 +52,7 @@ public sealed class OrphanEpisodeOrganizer
 
         if (!OrganizerConfigurationValidator.TryValidate(configuration, out var validated, out var validationError) || validated is null)
         {
-            _logger.LogWarning("WatchDB configuration is invalid: {ValidationError}", validationError);
+            WatchDbLog.ConfigurationInvalid(_logger, validationError!);
             return OrganizerSummary.InvalidConfiguration;
         }
 
@@ -79,7 +79,7 @@ public sealed class OrphanEpisodeOrganizer
                 if (!File.Exists(source))
                 {
                     summary.Errors++;
-                    _logger.LogWarning("WatchDB skipped {File} because it disappeared during the scan.", source);
+                    WatchDbLog.SourceFileDisappeared(_logger, source);
                     continue;
                 }
 
@@ -87,7 +87,7 @@ public sealed class OrphanEpisodeOrganizer
                 if (!EpisodeFilenameParser.TryParse(source, sourceRoot, configuration.ParentFolderDepth, out var parsed) || parsed is null)
                 {
                     summary.Unparsed++;
-                    _logger.LogInformation("WatchDB ignored {File}: no SxxExx pattern was found in the file or its release folder.", source);
+                    WatchDbLog.IgnoredUnparsed(_logger, source);
                     continue;
                 }
 
@@ -95,7 +95,7 @@ public sealed class OrphanEpisodeOrganizer
                 if (match is null)
                 {
                     summary.AmbiguousOrUnmatched++;
-                    _logger.LogWarning("WatchDB left {File} unchanged: no unambiguous TMDb match for {Title} S{Season:D2}E{Episode:D2}.", source, parsed.SeriesTitle, parsed.SeasonNumber, parsed.EpisodeNumber);
+                    WatchDbLog.Unmatched(_logger, source, parsed.SeriesTitle, parsed.SeasonNumber, parsed.EpisodeNumber);
                     continue;
                 }
 
@@ -104,7 +104,7 @@ public sealed class OrphanEpisodeOrganizer
                 if (configuration.Mode == OrganizerMode.DryRun)
                 {
                     summary.Simulated++;
-                    _logger.LogInformation("WatchDB would link {File} to {Target} ({Series}, score {Score}).", source, targetPath, match.Value.Series.Name, match.Value.Score);
+                    WatchDbLog.WouldLink(_logger, source, targetPath, match.Value.Series.Name, match.Value.Score);
                     continue;
                 }
 
@@ -112,38 +112,38 @@ public sealed class OrphanEpisodeOrganizer
                 if (PathEntryExists(targetPath))
                 {
                     summary.AlreadyPresent++;
-                    _logger.LogInformation("WatchDB did not replace existing link or file {Target}.", targetPath);
+                    WatchDbLog.TargetAlreadyPresent(_logger, targetPath);
                     continue;
                 }
 
                 File.CreateSymbolicLink(targetPath, source);
                 summary.Linked++;
-                _logger.LogInformation("WatchDB linked {File} to {Target} ({Series}, score {Score}).", source, targetPath, match.Value.Series.Name, match.Value.Score);
+                WatchDbLog.Linked(_logger, source, targetPath, match.Value.Series.Name, match.Value.Score);
             }
             catch (HttpRequestException exception)
             {
                 summary.Errors++;
-                _logger.LogError(exception, "WatchDB could not reach TMDb while processing {File}.", source);
+                WatchDbLog.TmdbUnavailable(_logger, exception, source);
             }
             catch (IOException exception)
             {
                 summary.Errors++;
-                _logger.LogError(exception, "WatchDB could not access the filesystem while processing {File}.", source);
+                WatchDbLog.FileSystemFailure(_logger, exception, source);
             }
             catch (UnauthorizedAccessException exception)
             {
                 summary.Errors++;
-                _logger.LogError(exception, "WatchDB has insufficient access to process {File}.", source);
+                WatchDbLog.AccessDenied(_logger, exception, source);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 summary.Errors++;
-                _logger.LogError("WatchDB timed out while processing {File}.", source);
+                WatchDbLog.TmdbTimeout(_logger, source);
             }
             catch (System.Text.Json.JsonException exception)
             {
                 summary.Errors++;
-                _logger.LogError(exception, "WatchDB received an invalid TMDb response while processing {File}.", source);
+                WatchDbLog.InvalidTmdbResponse(_logger, exception, source);
             }
         }
 

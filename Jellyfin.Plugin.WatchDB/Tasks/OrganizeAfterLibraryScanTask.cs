@@ -31,7 +31,7 @@ public sealed class OrganizeAfterLibraryScanTask : ILibraryPostScanTask
             return;
         }
 
-        _logger.LogInformation("WatchDB started its automatic post-scan organization pass.");
+        WatchDbLog.AutomaticPostScanStarted(_logger);
         var organizer = new OrphanEpisodeOrganizer(_logger);
         var summary = await organizer.RunAsync(plugin.Configuration, progress, cancellationToken).ConfigureAwait(false);
         if (summary.Linked > 0)
@@ -39,8 +39,8 @@ public sealed class OrganizeAfterLibraryScanTask : ILibraryPostScanTask
             _libraryManager.QueueLibraryScan();
         }
 
-        _logger.LogInformation(
-            "WatchDB post-scan pass completed: {Scanned} scanned, {Confirmed} confirmed, {Linked} linked, {Simulated} simulated, {Unmatched} unmatched, {Errors} errors.",
+        WatchDbLog.AutomaticSummary(
+            _logger,
             summary.Scanned,
             summary.Confirmed,
             summary.Linked,
