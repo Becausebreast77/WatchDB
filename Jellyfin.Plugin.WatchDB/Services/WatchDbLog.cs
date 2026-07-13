@@ -57,4 +57,13 @@ internal static partial class WatchDbLog
 
     [LoggerMessage(EventId = 1016, Level = LogLevel.Information, Message = "WatchDB post-scan pass completed: {Scanned} scanned, {Confirmed} confirmed, {Linked} linked, {Simulated} simulated, {Unmatched} unmatched, {Errors} errors.")]
     public static partial void AutomaticSummary(ILogger logger, int scanned, int confirmed, int linked, int simulated, int unmatched, int errors);
+
+    [LoggerMessage(EventId = 1017, Level = LogLevel.Information, Message = "WatchDB merged duplicate series card {DuplicateSeries} into {PrimarySeries} (TMDb {TmdbId}).")]
+    public static partial void MergedDuplicateSeries(ILogger logger, string duplicateSeries, string primarySeries, string tmdbId);
+
+    [LoggerMessage(EventId = 1018, Level = LogLevel.Information, Message = "WatchDB library pass completed: {IdentifiedSeries} identified series, {DuplicateGroups} duplicate groups, {SeriesCardsMerged} cards merged, {EpisodesMerged} episodes reattached.")]
+    public static partial void LibraryMergeSummary(ILogger logger, int identifiedSeries, int duplicateGroups, int seriesCardsMerged, int episodesMerged);
+
+    [LoggerMessage(EventId = 1019, Level = LogLevel.Information, Message = "WatchDB identified {SeriesName} through Jellyfin's metadata provider (TMDb {TmdbId}).")]
+    public static partial void IdentifiedSeries(ILogger logger, string seriesName, string tmdbId);
 }

@@ -1,5 +1,6 @@
 using Jellyfin.Plugin.WatchDB.Services;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -12,24 +13,26 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
 {
     private readonly ILogger<OrganizeOrphanEpisodesTask> _logger;
     private readonly ILibraryManager _libraryManager;
+    private readonly IProviderManager _providerManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrganizeOrphanEpisodesTask"/> class.
     /// </summary>
-    public OrganizeOrphanEpisodesTask(ILogger<OrganizeOrphanEpisodesTask> logger, ILibraryManager libraryManager)
+    public OrganizeOrphanEpisodesTask(ILogger<OrganizeOrphanEpisodesTask> logger, ILibraryManager libraryManager, IProviderManager providerManager)
     {
         _logger = logger;
         _libraryManager = libraryManager;
+        _providerManager = providerManager;
     }
 
     /// <inheritdoc />
-    public string Name => "WatchDB — Organiser les épisodes orphelins";
+    public string Name => "WatchDB — Réparer les séries fragmentées";
 
     /// <inheritdoc />
     public string Key => "WatchDBOrganizeOrphanEpisodes";
 
     /// <inheritdoc />
-    public string Description => "Associe prudemment les épisodes isolés à TMDb et crée une arborescence Jellyfin par liens symboliques.";
+    public string Description => "Regroupe automatiquement les cartes de séries que Jellyfin a déjà confirmées comme identiques via TMDb.";
 
     /// <inheritdoc />
     public string Category => "WatchDB";
@@ -48,22 +51,13 @@ public sealed class OrganizeOrphanEpisodesTask : IScheduledTask
             return;
         }
 
-        var organizer = new OrphanEpisodeOrganizer(_logger);
-        var summary = await organizer.RunAsync(plugin.Configuration, progress, cancellationToken).ConfigureAwait(false);
-        if (summary.Linked > 0)
-        {
-            _libraryManager.QueueLibraryScan();
-        }
-
-        WatchDbLog.ManualSummary(
+        var organizer = new LibrarySeriesMerger(_libraryManager, _providerManager, _logger);
+        var summary = await organizer.RunAsync(progress, cancellationToken).ConfigureAwait(false);
+        WatchDbLog.LibraryMergeSummary(
             _logger,
-            summary.Scanned,
-            summary.Confirmed,
-            summary.Linked,
-            summary.Simulated,
-            summary.AmbiguousOrUnmatched,
-            summary.Unparsed,
-            summary.AlreadyPresent,
-            summary.Errors);
+            summary.IdentifiedSeries,
+            summary.DuplicateGroups,
+            summary.SeriesCardsMerged,
+            summary.EpisodesMerged);
     }
 }

@@ -26,7 +26,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets a value indicating whether the scheduled task may process files.
     /// </summary>
-    public bool Enabled { get; set; }
+    public bool Enabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether WatchDB runs after Jellyfin completes a library scan.
