@@ -1,0 +1,127 @@
+<div id="watchdbConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="watchdbConfigForm">
+                <h1>WatchDB Smart Organizer</h1>
+                <p>WatchDB détecte les épisodes orphelins, confirme leur série et épisode via TMDb, puis crée une bibliothèque Jellyfin propre avec des liens symboliques. Les fichiers originaux ne sont jamais déplacés.</p>
+
+                <label class="checkboxContainer">
+                    <input id="enabled" type="checkbox" is="emby-checkbox" />
+                    <span>Activer le traitement par la tâche planifiée</span>
+                </label>
+
+                <label class="checkboxContainer">
+                    <input id="organizeAfterLibraryScan" type="checkbox" is="emby-checkbox" />
+                    <span>Traiter automatiquement après chaque scan de bibliothèque Jellyfin</span>
+                </label>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="sourceDirectories">Dossiers source</label>
+                    <textarea id="sourceDirectories" is="emby-textarea" rows="5" placeholder="Un chemin par ligne"></textarea>
+                    <div class="fieldDescription">Dossiers d'inbox ou de releases à analyser. Les fichiers déjà rangés peuvent rester ailleurs.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="destinationDirectory">Dossier de bibliothèque générée</label>
+                    <input id="destinationDirectory" type="text" is="emby-input" placeholder="/media/Jellyfin-Series" />
+                    <div class="fieldDescription">Ajoute uniquement ce dossier comme source de ta bibliothèque Séries Jellyfin.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="tmdbReadAccessTokenEnvironmentVariable">Variable d'environnement TMDb (recommandée)</label>
+                    <input id="tmdbReadAccessTokenEnvironmentVariable" type="text" is="emby-input" />
+                    <div class="fieldDescription">Ex. <code>WATCHDB_TMDB_TOKEN</code>. La variable du processus Jellyfin est prioritaire et évite d’enregistrer le secret dans la configuration du plugin.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="tmdbReadAccessToken">TMDb API Read Access Token (secours)</label>
+                    <input id="tmdbReadAccessToken" type="password" is="emby-input" />
+                    <div class="fieldDescription">Utilisé seulement si la variable d’environnement est absente. Ce champ reste vide après sauvegarde.</div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="mode">Mode</label>
+                    <select id="mode" is="emby-select">
+                        <option value="0">Simulation — aucun fichier n'est créé</option>
+                        <option value="1">Créer des liens symboliques</option>
+                    </select>
+                </div>
+
+                <label class="checkboxContainer">
+                    <input id="scanRecursively" type="checkbox" is="emby-checkbox" />
+                    <span>Analyser les sous-dossiers (utile quand chaque release est dans son propre dossier)</span>
+                </label>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="parentFolderDepth">Nombre de dossiers parents utilisés comme secours</label>
+                    <input id="parentFolderDepth" type="number" min="0" max="5" is="emby-input" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="preferredLanguage">Langue TMDb</label>
+                    <input id="preferredLanguage" type="text" is="emby-input" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="minimumConfidence">Seuil de confiance automatique</label>
+                    <input id="minimumConfidence" type="number" min="100" max="140" is="emby-input" />
+                    <div class="fieldDescription">115 est prudent : titre très proche + épisode réellement présent dans TMDb.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="minimumScoreGap">Écart minimal avec le second candidat</label>
+                    <input id="minimumScoreGap" type="number" min="0" max="40" is="emby-input" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="maxFilesPerRun">Nombre maximal de fichiers par exécution</label>
+                    <input id="maxFilesPerRun" type="number" min="1" max="5000" is="emby-input" />
+                    <div class="fieldDescription">Limite la charge du serveur et les appels TMDb. Relance simplement la tâche pour poursuivre.</div>
+                </div>
+
+                <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                    <span>Enregistrer</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const pluginId = '6c096401-05c2-4eb2-895a-f45f24a79f44';
+    const page = document.querySelector('#watchdbConfigPage');
+    const form = page.querySelector('#watchdbConfigForm');
+
+    page.addEventListener('pageshow', async () => {
+        const config = await ApiClient.getPluginConfiguration(pluginId);
+        for (const [key, value] of Object.entries(config)) {
+            if (key === 'TmdbReadAccessToken') continue;
+            const field = form.querySelector(`#${key.charAt(0).toLowerCase()}${key.slice(1)}`);
+            if (!field) continue;
+            if (field.type === 'checkbox') field.checked = value;
+            else field.value = value ?? '';
+        }
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const config = await ApiClient.getPluginConfiguration(pluginId);
+        config.Enabled = form.querySelector('#enabled').checked;
+        config.OrganizeAfterLibraryScan = form.querySelector('#organizeAfterLibraryScan').checked;
+        config.SourceDirectories = form.querySelector('#sourceDirectories').value.trim();
+        config.DestinationDirectory = form.querySelector('#destinationDirectory').value.trim();
+        const tmdbToken = form.querySelector('#tmdbReadAccessToken').value.trim();
+        if (tmdbToken) config.TmdbReadAccessToken = tmdbToken;
+        config.Mode = Number(form.querySelector('#mode').value);
+        config.ScanRecursively = form.querySelector('#scanRecursively').checked;
+        config.ParentFolderDepth = Number(form.querySelector('#parentFolderDepth').value);
+        config.PreferredLanguage = form.querySelector('#preferredLanguage').value.trim() || 'fr-FR';
+        config.MinimumConfidence = Number(form.querySelector('#minimumConfidence').value);
+        config.MinimumScoreGap = Number(form.querySelector('#minimumScoreGap').value);
+        config.MaxFilesPerRun = Number(form.querySelector('#maxFilesPerRun').value);
+        await ApiClient.updatePluginConfiguration(pluginId, config);
+        Dashboard.processPluginConfigurationUpdateResult();
+    });
+})();
+</script>

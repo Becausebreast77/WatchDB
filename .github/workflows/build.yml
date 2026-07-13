@@ -1,0 +1,21 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet restore Jellyfin.Plugin.WatchDB/Jellyfin.Plugin.WatchDB.csproj --locked-mode
+      - run: dotnet restore tests/WatchDB.SmokeTests/WatchDB.SmokeTests.csproj --locked-mode
+      - run: dotnet build Jellyfin.Plugin.WatchDB/Jellyfin.Plugin.WatchDB.csproj --configuration Release --no-restore
+      - run: dotnet run --project tests/WatchDB.SmokeTests/WatchDB.SmokeTests.csproj --configuration Release --no-restore
