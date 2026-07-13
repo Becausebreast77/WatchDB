@@ -29,18 +29,26 @@
     const pluginId = '6c096401-05c2-4eb2-895a-f45f24a79f44';
     const page = document.querySelector('#watchdbConfigPage');
     const form = page.querySelector('#watchdbConfigForm');
+    const getConfigValue = (config, property) => {
+        const key = Object.keys(config).find(key => key.toLowerCase() === property.toLowerCase());
+        return key ? config[key] : undefined;
+    };
+    const setConfigValue = (config, property, value) => {
+        const key = Object.keys(config).find(key => key.toLowerCase() === property.toLowerCase()) || property;
+        config[key] = value;
+    };
 
     page.addEventListener('pageshow', async () => {
         const config = await ApiClient.getPluginConfiguration(pluginId);
-        form.querySelector('#enabled').checked = config.Enabled !== false;
-        form.querySelector('#organizeAfterLibraryScan').checked = config.OrganizeAfterLibraryScan !== false;
+        form.querySelector('#enabled').checked = getConfigValue(config, 'Enabled') !== false;
+        form.querySelector('#organizeAfterLibraryScan').checked = getConfigValue(config, 'OrganizeAfterLibraryScan') !== false;
     });
 
     form.addEventListener('submit', async event => {
         event.preventDefault();
         const config = await ApiClient.getPluginConfiguration(pluginId);
-        config.Enabled = form.querySelector('#enabled').checked;
-        config.OrganizeAfterLibraryScan = form.querySelector('#organizeAfterLibraryScan').checked;
+        setConfigValue(config, 'Enabled', form.querySelector('#enabled').checked);
+        setConfigValue(config, 'OrganizeAfterLibraryScan', form.querySelector('#organizeAfterLibraryScan').checked);
         await ApiClient.updatePluginConfiguration(pluginId, config);
         Dashboard.processPluginConfigurationUpdateResult();
     });
