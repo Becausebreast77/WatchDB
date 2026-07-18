@@ -32,16 +32,6 @@ The dashboard task **WatchDB — Organiser les épisodes orphelins** remains ava
 - It only attaches an episode to a season that Jellyfin has already scanned. If the canonical series or season is absent, WatchDB leaves the item untouched and records why in the server log.
 - A run is protected from running concurrently.
 
-## Install and configure
-
-This project targets Jellyfin **10.11.11** and .NET SDK 9.0. The Jellyfin plugin API is version-sensitive: change the two Jellyfin package versions in `Jellyfin.Plugin.WatchDB.csproj` to exactly match the server version when necessary.
-
-```bash
-dotnet publish Jellyfin.Plugin.WatchDB/Jellyfin.Plugin.WatchDB.csproj --configuration Release
-```
-
-Copy the generated `Jellyfin.Plugin.WatchDB.dll` into a dedicated folder in Jellyfin's plugin directory and restart the server. There is no configuration to enter: enable the metadata providers you normally use in Jellyfin (for example TMDb) and let the next library scan complete.
-
 ## Install from Jellyfin
 
 After the first GitHub release has completed, add this custom repository once in **Dashboard → Plugins → Repositories**:
@@ -50,11 +40,3 @@ After the first GitHub release has completed, add this custom repository once in
 - **Repository URL:** `https://raw.githubusercontent.com/Becausebreast77/WatchDB/main/manifest.json`
 
 The WatchDB plugin will then appear in the plugin catalog. Install it there and restart Jellyfin when requested. Do not use the GitHub repository URL or the GitHub Release URL in this field: Jellyfin expects the JSON manifest URL.
-
-## Publish a release
-
-Maintainers publish a version from the **Actions → Release WatchDB → Run workflow** page on the `main` branch. Enter a new four-part version such as `0.2.3.0`. The workflow builds and tests the plugin, creates the plugin zip, creates the GitHub Release, calculates its MD5 checksum, and updates `manifest.json` automatically.
-
-## Current scope
-
-WatchDB deliberately does not create virtual series or season entries, because that would compete with Jellyfin's own scanner and metadata providers. It fixes safely identifiable links to series and seasons already present in the library, and logs the remaining cases for a later scan or improvement.
